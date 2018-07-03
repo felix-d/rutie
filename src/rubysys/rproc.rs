@@ -7,4 +7,8 @@ extern "C" {
                                    pass_procval: Value)
                                    -> Value;
     pub fn rb_proc_new(func: CallbackPtr, binding: Value) -> Value;
+    // TODO (a few easy methods)
+    // pub fn rb_obj_is_proc(obj: Value) -> Value;
+    // pub fn rb_obj_is_method(obj: Value) -> Value;
+    // pub fn rb_method_location(obj: Value) -> Value;
 }
