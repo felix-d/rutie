@@ -1,10 +1,10 @@
 use std::convert::From;
 
 use binding::rproc;
-use types::Value;
+use types::{Value, Callback};
 use util;
 
-use {AnyObject, Class, Object, VerifiedObject};
+use {AnyObject, Class, Object, VerifiedObject, NilClass};
 
 /// `Proc` (works with `Lambda` as well)
 #[derive(Debug, PartialEq)]
@@ -13,6 +13,37 @@ pub struct Proc {
 }
 
 impl Proc {
+    /// Creates a new Ruby proc from a closure
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rutie::{Class, Object, Proc, RString};
+    ///
+    /// let closure = || {
+    ///     let word = RString::new("Rust");
+    ///     word.send("reverse", None)
+    /// };
+    ///
+    /// let proc = Proc::new(closure, None);
+    /// let result = proc.call(None);
+    ///
+    /// match result.try_convert_to::<RString>() {
+    ///     Ok(val) => assert_eq!("tsuR", val.to_str()),
+    ///     Err(_) => unreachable!(),
+    /// }
+    /// ```
+    pub fn new<F, R>(closure: F, binding: Option<AnyObject>) -> Self
+      where F: 'static + FnOnce() -> R, R: Object {
+
+      let bind = match binding {
+          Some(item) => item,
+          _ => NilClass::new().to_any_object(),
+      }.value();
+
+      Proc { value: rproc::new(closure, bind) }
+    }
+
     /// Calls a proc with given arguments
     ///
     /// # Examples
