@@ -3,7 +3,6 @@ use std::convert::From;
 use binding::class;
 use binding::vm;
 use binding::global::ValueType;
-use binding::util as binding_util;
 use typed_data::DataTypeWrapper;
 use types::{Callback, Value};
 use util;
@@ -715,8 +714,8 @@ pub trait Object: From<Value> {
     /// assert_eq!(array_string.to_str(), "[1]");
     /// ```
     fn send(&self, method: &str, arguments: Option<&[AnyObject]>) -> AnyObject {
-        let arguments = util::arguments_to_values(arguments);
-        let result = binding_util::call_method(self.value(), method, arguments);
+        let arguments = util::arguments_to_values(arguments).unwrap_or_default();
+        let result = vm::call_method(self.value(), method, &arguments);
 
         AnyObject::from(result)
     }
@@ -750,9 +749,9 @@ pub trait Object: From<Value> {
     fn equals<T: Object>(&self, other: &T) -> bool {
         let v = self.value();
         let m = "==";
-        let a = vec![other.value()];
+        let a = [other.value()];
 
-        binding_util::call_method(v, m, Some(a)).is_true()
+        vm::call_method(v, m, &a).is_true()
     }
 
     /// Alias for Ruby's `===`
@@ -781,9 +780,9 @@ pub trait Object: From<Value> {
     fn case_equals<T: Object>(&self, other: &T) -> bool {
         let v = self.value();
         let m = "===";
-        let a = vec![other.value()];
+        let a = [other.value()];
 
-        binding_util::call_method(v, m, Some(a)).is_true()
+        vm::call_method(v, m, &a).is_true()
     }
 
     /// Alias for Ruby's `eql?`
@@ -816,9 +815,9 @@ pub trait Object: From<Value> {
     fn is_eql<T: Object>(&self, other: &T) -> bool {
         let v = self.value();
         let m = "eql?";
-        let a = vec![other.value()];
+        let a = [other.value()];
 
-        binding_util::call_method(v, m, Some(a)).is_true()
+        vm::call_method(v, m, &a).is_true()
     }
 
     /// Alias for Ruby's `equal?`
@@ -851,9 +850,9 @@ pub trait Object: From<Value> {
     fn is_equal<T: Object>(&self, other: &T) -> bool {
         let v = self.value();
         let m = "equal?";
-        let a = vec![other.value()];
+        let a = [other.value()];
 
-        binding_util::call_method(v, m, Some(a)).is_true()
+        vm::call_method(v, m, &a).is_true()
     }
 
     /// Checks whether the object responds to given method
@@ -912,10 +911,10 @@ pub trait Object: From<Value> {
     /// ```
     fn protect_send(&self, method: String, arguments: Option<&[AnyObject]>) -> Result<AnyObject, AnyException> {
         let v = self.value();
-        let arguments = util::arguments_to_values(arguments);
+        let arguments = util::arguments_to_values(arguments).unwrap_or_default();
 
-        let closure = move || {
-            binding_util::call_method(v, &method, arguments)
+        let closure = || {
+            vm::call_method(v, &method, &arguments)
         };
 
         let result = vm::protect(closure);
@@ -971,10 +970,10 @@ pub trait Object: From<Value> {
     /// ```
     fn protect_public_send(&self, method: String, arguments: Option<&[AnyObject]>) -> Result<AnyObject, AnyException> {
         let v = self.value();
-        let arguments = util::arguments_to_values(arguments);
+        let arguments = util::arguments_to_values(arguments).unwrap_or_default();
 
-        let closure = move || {
-            binding_util::call_public_method(v, &method, arguments)
+        let closure = || {
+            vm::call_public_method(v, &method, &arguments)
         };
 
         let result = vm::protect(closure);
@@ -1219,9 +1218,7 @@ pub trait Object: From<Value> {
     /// frozen_string.frozen? == true
     /// ```
     fn is_frozen(&self) -> bool {
-        let result = class::is_frozen(self.value());
-
-        Boolean::from(result).to_bool()
+        self.value().is_frozen()
     }
 
     /// Prevents further modifications to the object.
@@ -1232,14 +1229,22 @@ pub trait Object: From<Value> {
     /// use rutie::{Object, RString, VM};
     /// # VM::init();
     ///
+    /// let mut string = RString::new("String");
+    ///
+    /// assert!(!string.is_frozen(), "String should not be frozen");
+    ///
     /// let frozen_string = RString::new("String").freeze();
     ///
-    /// assert!(frozen_string.is_frozen());
+    /// assert!(frozen_string.is_frozen(), "String should be frozen");
     /// ```
     ///
     /// Ruby:
     ///
     /// ```ruby
+    /// string = 'String'
+    ///
+    /// string.frozen? == false
+    ///
     /// frozen_string = 'String'.freeze
     ///
     /// frozen_string.frozen? == true

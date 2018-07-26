@@ -1,7 +1,6 @@
 ## Rutie
 
 [![Build Status](https://travis-ci.org/danielpclark/rutie.svg?branch=master)](https://travis-ci.org/danielpclark/rutie)
-[![Build status](https://ci.appveyor.com/api/projects/status/fm8tpa9aqx80am0i/branch/master?svg=true)](https://ci.appveyor.com/project/danielpclark/rutie/branch/master)
 [![Maintenance](https://img.shields.io/maintenance/yes/2018.svg)](https://github.com/danielpclark/rutie/commits/master)
 [![GitHub contributors](https://img.shields.io/github/contributors/danielpclark/rutie.svg)](https://github.com/danielpclark/rutie/graphs/contributors)
 [![license](https://img.shields.io/github/license/danielpclark/rutie.svg)](https://github.com/danielpclark/rutie/blob/master/LICENSE)
@@ -12,7 +11,8 @@ This project allows you to do either with relative ease.
 
 You are highly encouraged to read the source code for this project.  Every method that has been
 mapped from Ruby for public use in `src/class/*` is **very well documented** with example code.
-This is the best way to take off running with Rutie.
+This is the best way to take off running with Rutie.  There are also integration examples in the
+examples directory which are based off of this README.
 
 This project is a continuation of:
 * [ruru](https://github.com/d-unseductable/ruru/) (licensed MIT)
@@ -41,7 +41,7 @@ First add the dependency to your `Cargo.toml` file.
 
 ```toml
 [dependencies]
-rutie = "0.2.1"
+rutie = "0.3.1"
 ```
 
 Then in your Rust program add `VM::init()` to the beginning of its code execution path
@@ -88,7 +88,7 @@ file.  Add Rutie to the `Cargo.toml` file and define the lib type.
 
 ```toml
 [dependencies]
-rutie = "0.2.1"
+rutie = "0.3.1"
 
 [lib]
 name = "rutie_ruby_example"
@@ -238,8 +238,8 @@ pub struct Pathname {
 
 impl Pathname {
     pub fn new(path: &str) -> Pathname {
-        let mut instance = Class::from_existing("Pathname").allocate();
-        instance.instance_variable_set("@path", RString::new(path).to_any_object());
+        let arguments = [RString::new(path).to_any_object()];
+        let instance = Class::from_existing("Pathname").new_instance(Some(&arguments));
 
         Pathname { value: instance.value() }
     }
@@ -354,6 +354,10 @@ You will have additional considerations to change like `Error` being removed.  F
 #### 0.2
 
 Migrated `parse_arguments` from `VM` to `util`.
+
+#### 0.3
+
+Internal changes `util` from `binding` and `rubysys` have been replaced to reduce confusion and reduce duplication.
 
 ## Troubleshooting
 

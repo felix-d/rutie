@@ -1,6 +1,6 @@
-use rubysys::libc::size_t;
 use std::mem;
 use std::convert::From;
+use rubysys::constant;
 
 use rubysys::types::{InternalValue, RBasic};
 
@@ -45,6 +45,7 @@ pub enum RubySpecialFlags {
 #[repr(C)]
 pub enum ValueType {
     None = 0x00,
+
     Object = 0x01,
     Class = 0x02,
     Module = 0x03,
@@ -60,15 +61,19 @@ pub enum ValueType {
     Match = 0x0d,
     Complex = 0x0e,
     Rational = 0x0f,
+
     Nil = 0x11,
     True = 0x12,
     False = 0x13,
     Symbol = 0x14,
     Fixnum = 0x15,
-    Undef = 0x1b,
-    Node = 0x1c,
-    IClass = 0x1d,
-    Zombie = 0x1e,
+    Undef = 0x16,
+
+    IMemo = 0x1a,
+    Node = 0x1b,
+    IClass = 0x1c,
+    Zombie = 0x1d,
+
     Mask = 0x1f,
 }
 
@@ -91,6 +96,10 @@ impl Value {
         self.value == (RubySpecialConsts::Nil as InternalValue)
     }
 
+    pub fn is_node(&self) -> bool {
+        self.builtin_type() == ValueType::Node
+    }
+
     pub fn is_undef(&self) -> bool {
         self.value == (RubySpecialConsts::Undef as InternalValue)
     }
@@ -108,6 +117,10 @@ impl Value {
         (RubySpecialFlags::FlonumFlag as InternalValue)
     }
 
+    pub fn is_frozen(&self) -> bool {
+        !self.is_fl_able() || self.is_obj_frozen_raw()
+    }
+
     pub fn ty(&self) -> ValueType {
         if self.is_immediate() {
             if self.is_fixnum() {
@@ -123,7 +136,7 @@ impl Value {
             } else {
                 self.builtin_type()
             }
-        } else if !self.test() {
+        } else if !self.is_test() {
             if self.is_nil() {
                 ValueType::Nil
             } else if self.is_false() {
@@ -136,18 +149,33 @@ impl Value {
         }
     }
 
+    fn is_fl_able(&self) -> bool {
+        !self.is_special_const() && !self.is_node()
+    }
+
+    fn is_special_const(&self) -> bool {
+        self.is_immediate() || !self.is_test()
+    }
+
     fn is_immediate(&self) -> bool {
         (self.value & (RubySpecialFlags::ImmediateMask as InternalValue)) != 0
     }
 
-    fn test(&self) -> bool {
+    fn is_test(&self) -> bool {
         (self.value & !(RubySpecialConsts::Nil as InternalValue)) != 0
+    }
+
+    fn is_obj_frozen_raw(&self) -> bool {
+        unsafe {
+            let basic: *const RBasic = mem::transmute(self.value);
+            (*basic).flags & (constant::FL_FREEZE as InternalValue) != 0
+        }
     }
 
     fn builtin_type(&self) -> ValueType {
         unsafe {
             let basic: *const RBasic = mem::transmute(self.value);
-            let masked = (*basic).flags & (ValueType::Mask as size_t);
+            let masked = (*basic).flags & (ValueType::Mask as InternalValue);
             mem::transmute(masked as u32)
         }
     }

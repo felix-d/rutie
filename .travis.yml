@@ -5,6 +5,7 @@ os:
 - osx
 
 rust:
+  - 1.25.0
   - stable
   - beta
   - nightly
@@ -13,6 +14,7 @@ cache: cargo
 
 matrix:
   allow_failures:
+    - rust: beta
     - rust: nightly
 
 before_install:
@@ -22,18 +24,25 @@ before_install:
 - ruby -e 'require "pp"; pp RbConfig::CONFIG'
 - rustc -Vv
 - cargo -Vv
+- mkdir -p target/debug/deps
+- cp $(ruby -e 'puts File.join(RbConfig::CONFIG["libdir"], RbConfig::CONFIG["LIBRUBY_ALIASES"].split(" ").first)') target/debug/deps
 
 before_script:
 - export PATH=$HOME/.cargo/bin:$HOME/.local/bin:$PATH
 
 script:
 - |
-  cargo -vv build &&
-  cargo -vv test
+  cargo build -vv &&
+  cargo test -vv
+
+after_script:
+- cat target/debug/build/rutie-*/output
+- cat target/debug/build/rutie-*/stderr
 
 env:
   global:
     - RUST_BACKTRACE=full
+    - CI_STDERR_LOG=true
   matrix:
     - BUILD_RUBY_VERSION: 2.3.7
     - BUILD_RUBY_VERSION: 2.4.4

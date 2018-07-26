@@ -3,6 +3,7 @@ use std::ptr;
 use rubysys::{thread, vm};
 
 use types::{c_int, c_void, CallbackPtr, Value};
+use binding::symbol::internal_id;
 use util;
 
 pub fn block_proc() -> Value {
@@ -27,6 +28,22 @@ pub fn require(name: &str) {
     unsafe {
         vm::rb_require(name.as_ptr());
     }
+}
+
+pub fn call_method(receiver: Value, method: &str, arguments: &[Value]) -> Value {
+    let (argc, argv) = util::process_arguments(arguments);
+    let method_id = internal_id(method);
+
+    // TODO: Update the signature of `rb_funcallv` in ruby-sys to receive an `Option`
+    unsafe { vm::rb_funcallv(receiver, method_id, argc, argv) }
+}
+
+pub fn call_public_method(receiver: Value, method: &str, arguments: &[Value]) -> Value {
+    let (argc, argv) = util::process_arguments(arguments);
+    let method_id = internal_id(method);
+
+    // TODO: Update the signature of `rb_funcallv_public` in ruby-sys to receive an `Option`
+    unsafe { vm::rb_funcallv_public(receiver, method_id, argc, argv) }
 }
 
 // "evaluation can raise an exception."
@@ -145,21 +162,23 @@ extern "C" fn callbox(boxptr: *mut c_void) -> *const c_void {
     fnbox()
 }
 
-pub fn protect<F, R>(func: F) -> Result<Value, c_int>
+pub fn protect<F>(func: F) -> Result<Value, c_int>
 where
-    F: FnOnce() -> R,
+    F: FnMut() -> Value,
 {
     let mut state = 0;
     let value = unsafe {
-        vm::rb_protect(
-            callbox as CallbackPtr,
-            util::closure_to_ptr(func),
-            &mut state as *mut c_int,
-        )
+        let closure = &func as *const F as *const c_void;
+        vm::rb_protect(callback_protect::<F> as CallbackPtr, closure, &mut state as *mut c_int)
     };
     if state == 0 {
         Ok(value)
     } else {
         Err(state)
     }
+}
+
+fn callback_protect<F: FnMut() -> Value>(ptr: *const c_void) -> Value {
+    let f = ptr as *mut F;
+    unsafe { (*f)() }
 }
