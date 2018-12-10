@@ -88,7 +88,7 @@ fn rvm_libruby_static_path() -> Option<String> {
 
 #[cfg(not(target_os = "windows"))]
 fn static_ruby_file_name() -> String {
-    "libruby-static.a".to_string()
+    rbconfig("LIBRUBY_A")
 }
 
 #[cfg(target_os = "windows")]
@@ -121,6 +121,14 @@ fn static_ruby_location() -> String {
     );
 
     location
+}
+
+#[cfg(not(target_os = "macos"))]
+fn macos_static_ruby_dep() {}
+
+#[cfg(target_os = "macos")]
+fn macos_static_ruby_dep() {
+    println!("cargo:rustc-link-lib=framework=Foundation");
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -168,10 +176,13 @@ fn use_static() {
     println!("cargo:rustc-link-search={}", static_ruby_location());
     let static_name = static_ruby_file_name();
     let static_name = Path::new(&static_name).file_stem().unwrap().to_string_lossy();
-    println!("cargo:rustc-link-lib={}", static_name);
+    println!("cargo:rustc-link-lib={}", static_name.trim_left_matches("lib"));
 
     // If Windows
     windows_static_ruby_dep();
+
+    // If Mac OS
+    macos_static_ruby_dep();
 
     // Ruby gives back the libs in the form: `-lpthread -lgmp`
     // Cargo wants them as: `-l pthread -l gmp`
@@ -235,7 +246,6 @@ fn windows_support() {
     Command::new("build/windows/exports.bat").output().unwrap();
 
     purge_refptr_text();
-   
     Command::new("build/windows/vcbuild.cmd")
         .arg("-arch=x64")
         .arg("-host_arch=x64")
